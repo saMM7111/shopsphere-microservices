@@ -7,7 +7,7 @@
 ![Architecture](https://img.shields.io/badge/Architecture-Microservices-0d6efd)
 ![Pattern](https://img.shields.io/badge/Pattern-Event%20Driven-yellow)
 
-MicroMart is an enterprise-grade, distributed e-commerce ecosystem built on a reactive, event-driven architecture. Designed for high availability and elastic scalability, the platform demonstrates sophisticated patterns including distributed transactions (Saga), reactive data streams, and automated resilience.
+ShopSphere is an enterprise-grade, distributed e-commerce ecosystem built on a reactive, event-driven architecture. Designed for high availability and elastic scalability, the platform demonstrates sophisticated patterns including distributed transactions (Saga), reactive data streams, and automated resilience.
 
 The project is structured as independent Spring Boot services with clear domain boundaries and a reusable JWT utility library.
 
