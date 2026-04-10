@@ -1,0 +1,23 @@
+<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.samm7111</groupId>
+  <artifactId>shopsphere-microservices</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>shopsphere-microservices</name>
+
+  <modules>
+    <module>ConfigServer</module>
+    <module>EurekaServer</module>
+    <module>Gateway</module>
+    <module>JwtAuthorities</module>
+    <module>Users</module>
+    <module>Products</module>
+    <module>Inventory</module>
+    <module>Cart</module>
+    <module>Order</module>
+    <module>Payment</module>
+    <module>Notification</module>
+  </modules>
+</project>
