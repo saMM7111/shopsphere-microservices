@@ -1,193 +1,143 @@
-# ShopSphere: Distributed E-Commerce Microservices Platform
+# ShopSphere
 
 ![CI](https://github.com/saMM7111/shopsphere-microservices/actions/workflows/ci.yml/badge.svg)
 ![Java](https://img.shields.io/badge/Java-17-orange)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.x-green)
 ![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2025.0.1-blue)
 ![Architecture](https://img.shields.io/badge/Architecture-Microservices-0d6efd)
-![Pattern](https://img.shields.io/badge/Pattern-Event%20Driven-yellow)
 
-ShopSphere is an enterprise-grade, distributed e-commerce ecosystem built on a reactive, event-driven architecture. Designed for high availability and elastic scalability, the platform demonstrates sophisticated patterns including distributed transactions (Saga), reactive data streams, and automated resilience
+ShopSphere is a microservices-first e-commerce backend designed as an engineering portfolio project with production-minded architecture decisions.
 
----
+The goal is not only to expose endpoints, but to demonstrate how systems evolve from simple service boundaries to resilient, observable, event-driven workflows.
 
-## System Architecture
+## About This Repository
 
-ShopSphere uses the API Gateway pattern, service discovery, and service-per-domain boundaries for scalability and loose coupling.
+This repository is intentionally opinionated for senior-level review:
+
+- Clear service boundaries and responsibility ownership.
+- Gateway plus discovery plus centralized config as foundational platform patterns.
+- Event-driven extension points using RabbitMQ-ready dependencies.
+- CI pipeline that verifies build integrity on every push and pull request.
+- Incremental architecture: current implementation is intentionally lightweight, with explicit upgrade paths to production-grade persistence and distributed concerns.
+
+## Architecture Snapshot
 
 ```mermaid
 graph LR
-	classDef business fill:#0d6efd,color:#fff,stroke:#0a58ca,stroke-width:2px;
-	classDef infra fill:#198754,color:#fff,stroke:#146c43,stroke-width:2px;
-	classDef data fill:#ffc107,color:#000,stroke:#cc9a06,stroke-width:2px;
-	classDef shared fill:#6f42c1,color:#fff,stroke:#59339d,stroke-width:2px;
-	classDef external fill:#ffffff,color:#000,stroke:#cccccc,stroke-width:2px;
+    Client((Client Apps)) --> Gateway[Gateway : 7082]
 
-	Client((Web or Mobile Client)) --> Gateway[Gateway : 7082]
-	class Client external
-	class Gateway business
+    subgraph Platform
+        Config[ConfigServer : 7012]
+        Eureka[EurekaServer : 7010]
+        Broker[RabbitMQ]
+    end
 
-	subgraph Infrastructure
-		Config[ConfigServer : 7012]
-		Eureka[EurekaServer : 7010]
-		Rabbit[RabbitMQ]
-	end
-	class Config,Eureka,Rabbit infra
+    subgraph Domain Services
+        Users[Users : 7001]
+        Products[Products : 7016]
+        Inventory[Inventory : 7061]
+        Cart[Cart : 7041]
+        Order[Order : 7063]
+        Payment[Payment : 7007]
+        Notification[Notification : 7050]
+    end
 
-	subgraph Domain Services
-		Users[Users : 7001]
-		Products[Products : 7016]
-		Inventory[Inventory : 7061]
-		Cart[Cart : 7041]
-		Order[Order : 7063]
-		Payment[Payment : 7007]
-		Notification[Notification : 7050]
-	end
-	class Users,Products,Inventory,Cart,Order,Payment,Notification business
+    Shared[JwtAuthorities Library]
 
-	subgraph Data Stores
-		UsersDB[(Users DB)]
-		ProductsDB[(Products DB)]
-		InventoryDB[(Inventory DB)]
-		OrderDB[(Order DB)]
-		PaymentDB[(Payment DB)]
-		CartDB[(Cart DB)]
-	end
-	class UsersDB,ProductsDB,InventoryDB,OrderDB,PaymentDB,CartDB data
+    Gateway -.-> Eureka
+    Gateway --> Users
+    Gateway --> Products
+    Gateway --> Inventory
+    Gateway --> Cart
+    Gateway --> Order
+    Gateway --> Payment
+    Gateway --> Notification
 
-	subgraph Shared Security
-		JWT[[JwtAuthorities Library]]
-	end
-	class JWT shared
+    Order --> Payment
+    Cart --> Inventory
 
-	Gateway -.-> Eureka
-	Order --> Payment
-	Cart --> Inventory
+    Order -. events .-> Broker
+    Payment -. events .-> Broker
+    Broker -. consumers .-> Notification
+    Broker -. consumers .-> Order
+    Broker -. consumers .-> Inventory
+    Broker -. consumers .-> Cart
 
-	Order -. publishes .-> Rabbit
-	Payment -. publishes .-> Rabbit
-	Rabbit -. consumes .-> Notification
-	Rabbit -. consumes .-> Order
-	Rabbit -. consumes .-> Inventory
-	Rabbit -. consumes .-> Cart
-
-	Users --> UsersDB
-	Products --> ProductsDB
-	Inventory --> InventoryDB
-	Cart --> CartDB
-	Order --> OrderDB
-	Payment --> PaymentDB
+    Users --> Shared
+    Products --> Shared
+    Cart --> Shared
+    Order --> Shared
+    Payment --> Shared
 ```
 
----
+## Service Catalog
 
-## Checkout Lifecycle
-
-The sequence below shows a typical order flow with both synchronous and asynchronous steps.
-
-```mermaid
-sequenceDiagram
-	participant Client
-	participant Gateway
-	participant Users
-	participant Order
-	participant Payment
-	participant Rabbit as RabbitMQ
-	participant Inventory
-	participant Notify as Notification
-
-	Client->>Gateway: POST /api/orders/checkout
-	Gateway->>Users: Validate user or session
-	Gateway->>Order: Create order (PENDING)
-	Order->>Payment: Initiate payment
-	Payment-->>Client: Payment reference
-
-	Payment->>Rabbit: Payment approved event
-
-	par Async consumers
-		Rabbit-->>Order: Mark order as CONFIRMED
-		Rabbit-->>Inventory: Deduct stock
-		Rabbit-->>Notify: Send user notification
-	end
-```
-
----
-
-## Reliability and Operations
-
-- Gateway includes circuit-breaker support for critical routes.
-- Services expose Spring Boot Actuator endpoints for health and diagnostics.
-- RabbitMQ dependencies are in place for event-driven communication between services.
-- Each service is independently runnable and deployable.
-
----
-
-## Service Registry
-
-| Service | Responsibility | Port |
+| Service | Port | Primary Responsibility |
 | :--- | :--- | :--- |
-| Gateway | API entrypoint, routing, edge resilience | 7082 |
-| ConfigServer | Centralized configuration source | 7012 |
-| EurekaServer | Service discovery registry | 7010 |
-| Users | Registration and login endpoints | 7001 |
-| Products | Product and category catalog endpoints | 7016 |
-| Inventory | Stock and safety-threshold management | 7061 |
-| Cart | Add or view or clear cart operations | 7041 |
-| Order | Checkout and order retrieval endpoints | 7063 |
-| Payment | Payment initiation, approval, and status | 7007 |
-| Notification | Multi-channel notification dispatch | 7050 |
-| JwtAuthorities | Shared JWT parsing utility library | N/A |
+| ConfigServer | 7012 | Centralized configuration service |
+| EurekaServer | 7010 | Service registry and discovery |
+| Gateway | 7082 | Routing, edge control, resilience boundary |
+| Users | 7001 | User registration and login workflows |
+| Products | 7016 | Product and category catalog APIs |
+| Inventory | 7061 | Stock tracking and safety-threshold operations |
+| Cart | 7041 | Cart lifecycle: add, view, clear |
+| Order | 7063 | Checkout and order query flows |
+| Payment | 7007 | Payment initiation, approval, status tracking |
+| Notification | 7050 | Multi-channel notification dispatch |
+| JwtAuthorities | N/A | Shared JWT claims and header parsing utility |
 
----
+## Engineering Decisions and Trade-Offs
 
-## Repository Structure
+- Domain-first service decomposition over premature optimization.
+- Synchronous calls for immediate business needs, asynchronous paths for eventual consistency workflows.
+- Lightweight in-memory service logic in early phase to accelerate boundary design and API iteration.
+- Spring Cloud BOM alignment across modules to keep dependency management deterministic.
+- CI-first workflow to catch integration issues before review.
 
-```text
-Microservices/
-  ConfigServer/
-  EurekaServer/
-  Gateway/
-  JwtAuthorities/
-  Users/
-  Products/
-  Inventory/
-  Cart/
-  Order/
-  Payment/
-  Notification/
-  docker-compose.yml
-  pom.xml
-```
+## Current State and Next Iteration
 
----
+Current baseline:
 
-## Local Development Setup
+- Multi-module Maven project with independent Spring Boot services.
+- Centralized discovery and gateway edge.
+- RabbitMQ integration points present.
+- GitHub Actions CI enabled.
 
-### 1) Prerequisites
+Next engineering targets:
+
+- Replace in-memory stores with per-service persistence and migrations.
+- Add distributed tracing and correlation IDs.
+- Introduce contract tests between critical service boundaries.
+- Harden auth flow with token refresh and permission checks at gateway and service layers.
+- Add deployment manifests and environment profiles for staging and production.
+
+## Local Development
+
+Prerequisites:
 
 - Java 17
 - Maven 3.9+
 - Docker Desktop
 
-### 2) Start dependencies
+Start dependencies:
 
 ```bash
 docker-compose up -d
 ```
 
-### 3) Build shared JWT library first
+Build shared library:
 
 ```bash
 mvn -pl JwtAuthorities -am clean install
 ```
 
-### 4) Build all modules
+Build all modules:
 
 ```bash
-mvn clean package -DskipTests
+mvn clean verify
 ```
 
-### 5) Start infrastructure services
+Run infrastructure:
 
 ```bash
 mvn -pl ConfigServer spring-boot:run
@@ -195,7 +145,7 @@ mvn -pl EurekaServer spring-boot:run
 mvn -pl Gateway spring-boot:run
 ```
 
-### 6) Start business services
+Run domain services:
 
 ```bash
 mvn -pl Users spring-boot:run
@@ -207,18 +157,20 @@ mvn -pl Payment spring-boot:run
 mvn -pl Notification spring-boot:run
 ```
 
----
+## CI
 
-## CI Pipeline
+Pipeline file: `.github/workflows/ci.yml`
 
-GitHub Actions is configured to run on push and pull requests to main.
+CI workflow performs:
 
-Workflow location:
+1. Checkout
+2. JDK 17 setup (Temurin)
+3. `mvn -B -ntp clean verify`
 
-- .github/workflows/ci.yml
+## Reviewer Notes
 
-Pipeline steps:
+If you are reviewing this as a senior engineer, the most valuable feedback areas are:
 
-1. Checkout repository
-2. Set up JDK 17 (Temurin)
-3. Run Maven build and tests with clean verify
+- Boundary choices between services.
+- Event contract design and failure semantics.
+- Upgrade path from current baseline to production-readiness.
