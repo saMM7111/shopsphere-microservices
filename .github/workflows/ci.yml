@@ -28,5 +28,21 @@ jobs:
           java-version: "17"
           cache: maven
 
+      - name: Validate root pom.xml
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Repository root: $(pwd)"
+          test -f pom.xml
+          echo "First 5 lines of pom.xml:"
+          sed -n '1,5p' pom.xml
+          echo "First 80 bytes (hex):"
+          od -An -tx1 -N80 pom.xml
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          ET.parse("pom.xml")
+          print("pom.xml is well-formed XML")
+          PY
+
       - name: Build and run tests
-        run: mvn -B -ntp clean verify
+        run: mvn -B -ntp --file pom.xml clean verify
